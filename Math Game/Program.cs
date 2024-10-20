@@ -240,6 +240,7 @@ void Game(Difficulty difficulty, string operand)
 		pastGames.Add((gameRecord, totalScore, difficulty, stopwatch.Elapsed.TotalSeconds));
 		Thread.Sleep(2000);
 		stopwatch.Reset();
+		timer.Elapsed -= OnTimedEvent;
 }
 
 char HandleMenuInput()
