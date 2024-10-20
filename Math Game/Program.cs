@@ -40,10 +40,11 @@ void RandomGame(Difficulty difficulty)
 void DisplayScores()
 {
 	Console.Clear();
+	Console.WriteLine($"=========================================================================");
 	for (int i = 0; i < pastGames.Count; i++)
 	{
-		var gameRecord = pastGames[i].Item1;
-		var totalScore = pastGames[i].Item2;
+		List<(int, string, int, bool)> gameRecord = pastGames[i].Item1;
+		int totalScore = pastGames[i].Item2;
 		Difficulty difficulty = pastGames[i].Item3;
 		double time = pastGames[i].Item4;
 		
@@ -82,7 +83,6 @@ void Game(Difficulty difficulty, string operand)
 	int totalScore = 0;
 	(int, string, int, bool) questionRecord;
 	List<(int, string, int, bool)> gameRecord = [];
-	gameRecord.Clear();
 	
 
 	timer.Elapsed += OnTimedEvent;
