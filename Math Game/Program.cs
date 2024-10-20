@@ -1,5 +1,11 @@
 ﻿using System.Diagnostics;
+using System.Globalization;
 using System.Timers;
+using Microsoft.CognitiveServices.Speech;
+using Microsoft.CognitiveServices.Speech.Audio;
+
+
+bool voiceMode = true;
 
 Random ran = new Random();
 List<(List<(int, string, int, bool)>, int, Difficulty, double)> pastGames = [];
@@ -76,171 +82,157 @@ void OnTimedEvent(Object source, ElapsedEventArgs e)
 
 void Game(Difficulty difficulty, string operand)
 {
-	int upperLimit;
-	int questionNumber = 1;
-	int divisorLimit;
-	bool isRandomMode = false;
 	int totalScore = 0;
-	(int, string, int, bool) questionRecord;
-	List<(int, string, int, bool)> gameRecord = [];
-	
-
+	int questionNumber = 1;
+	List<(int, string, int, bool)> gameRecord = new();
 	timer.Elapsed += OnTimedEvent;
 	timer.AutoReset = true;
 	
+	int upperLimit = GetUpperLimit(difficulty);
+	int divisorLimit = GetDivisorLimit(difficulty);
+
 	Console.WriteLine($"\n\nGet ready for 10 {operand} questions on {difficulty} mode!");
-	switch (difficulty)
-	{
-		case Difficulty.Easy:
-			divisorLimit = 13;
-			upperLimit = 25;
-			break;
-		case Difficulty.Medium:
-			divisorLimit = 51;
-			upperLimit = 101;
-			break;
-		case Difficulty.Hard:
-			divisorLimit = 251;
-			upperLimit = 501;
-			break;
-		default:
-			divisorLimit = 51;
-			upperLimit = 101;
-			break;
-	}
 	
 	while (questionNumber <= 10)
 	{
-		int addend1 = ran.Next(1, upperLimit);
-		int addend2 = ran.Next(1, upperLimit);
-		Thread.Sleep(2000);
-		Console.Clear();
-		
-		if (operand == "random")
-		{
-			switch(ran.Next(1, 5))
-			{
-				case 1:
-					operand = "addition";
-					break;
-				case 2:
-					operand = "subtraction";
-					break;
-				case 3:
-					operand = "multiplication";
-					break;
-				case 4:
-					operand = "division";
-					break;
-			}
-			isRandomMode = true;
-		}
+		(int operand1, int operand2) = GenerateOperands(operand, upperLimit, divisorLimit);
+		int correctAnswer = GetCorrectAnswer(operand, operand1, operand2);
 		
 		timer.Enabled = true;
 		stopwatch.Start();
+
+		Console.Clear();
 		Console.WriteLine($"Question {questionNumber}!\n\n");
-		switch(operand)
-		{
-			case "addition":
-				Console.WriteLine($"What is {addend1} + {addend2}");
-				break;
-			case "subtraction":
-				if (addend1 < addend2) (addend1, addend2) = (addend2, addend1);
-				Console.WriteLine($"What is {addend1} - {addend2}");
-				break;
-			case "multiplication":
-				if (addend1 < addend2) (addend1, addend2) = (addend2, addend1);
-				Console.WriteLine($"What is {addend1} × {addend2}");
-				break;
-				
-			//Creates the dividend by multiplying the divider. Also ensures that the dividend is never over 100
-			case "division":
-				addend2 = ran.Next(1, divisorLimit); // Divisor is still capped by difficulty
-				int quotient = ran.Next(1, upperLimit / addend2); // Generate a larger range for the quotient
-				addend1 = addend2 * quotient; // Calculate dividend as divisor * quotient
-				Console.WriteLine($"What is {addend1} ÷ {addend2}");
-				break;
-		}
+		Console.WriteLine($"What is {operand1} {GetOperandSymbol(operand)} {operand2}?\n");
 		
-		int userAnswer;
-		while (true)
-		{
-			if (int.TryParse(Console.ReadLine(), out userAnswer))
-			{
-				break;
-			}
-			else 
-			{
-				Console.WriteLine("That was not a valid answer! Please enter numeric answers only (no decimals).");
-			}
-		}
-		switch (operand)
-		{
-			case "addition":
-				if (addend1 + addend2 == userAnswer)
-				{
-					Console.WriteLine("Correct!");
-					gameRecord.Add((questionNumber, $"{addend1} + {addend2}", userAnswer, true));
-					totalScore++;
-				} 
-				else 
-				{
-					Console.WriteLine($"Incorrect. The answer was {addend1 + addend2}.");
-					gameRecord.Add((questionNumber, $"{addend1} + {addend2}", userAnswer, false));
-				}
-				break;
-			case "subtraction":
-				if (addend1 - addend2 == userAnswer)
-				{
-					Console.WriteLine("Correct!");
-					gameRecord.Add((questionNumber, $"{addend1} - {addend2}", userAnswer, true));
-					totalScore++;
-				} 
-				else 
-				{
-					Console.WriteLine($"Incorrect. The answer was {addend1 - addend2}.");
-					gameRecord.Add((questionNumber, $"{addend1} - {addend2}", userAnswer, false));
-				}
-				break;
-			case "multiplication":
-				if (addend1 * addend2 == userAnswer)
-				{
-					Console.WriteLine("Correct!");
-					gameRecord.Add((questionNumber, $"{addend1} * {addend2}", userAnswer, true));
-					totalScore++;
-				} 
-				else 
-				{
-					Console.WriteLine($"Incorrect. The answer was {addend1 * addend2}.");
-					gameRecord.Add((questionNumber, $"{addend1} * {addend2}", userAnswer, false));
-				}
-				break;
-			case "division":
-				if (addend1 / addend2 == userAnswer)
-				{
-					Console.WriteLine("Correct!");
-					gameRecord.Add((questionNumber, $"{addend1} / {addend2}", userAnswer, true));
-					totalScore++;
-				} 
-				else 
-				{
-					Console.WriteLine($"Incorrect. The answer was {addend1 / addend2}.");
-					gameRecord.Add((questionNumber, $"{addend1} / {addend2}", userAnswer, false));
-				}
-				break;
-		}
+		int userAnswer = GetUserInput(voiceMode);
+		bool isCorrect = userAnswer == correctAnswer;
+		
+		// Process the result
+		ProcessAnswer(gameRecord, ref totalScore, questionNumber, operand1, operand2, operand, userAnswer, correctAnswer, isCorrect);
+
 		questionNumber++;
-		if (isRandomMode) operand = "random";
+		if (operand == "random")
+		{
+			operand = GetRandomOperand();
+		}
 	}
-		stopwatch.Stop();
-		timer.Stop();
-		Thread.Sleep(2000);
-		Console.WriteLine($"\n\n\nYou got {totalScore} out of 10!");
-		Console.WriteLine($"\nIt took you {stopwatch.Elapsed.TotalSeconds:F2} seconds.");
-		pastGames.Add((gameRecord, totalScore, difficulty, stopwatch.Elapsed.TotalSeconds));
-		Thread.Sleep(2000);
-		stopwatch.Reset();
-		timer.Elapsed -= OnTimedEvent;
+
+	FinishGame(gameRecord, totalScore, difficulty);
+}
+
+void ProcessAnswer(List<(int, string, int, bool)> gameRecord, ref int totalScore, int questionNumber, int operand1, int operand2, string operand, int userAnswer, int correctAnswer, bool isCorrect)
+{
+	if (isCorrect)
+	{
+		Console.WriteLine("Correct!");
+		totalScore++;
+		Thread.Sleep(1500);
+	}
+	else
+	{
+		Console.WriteLine($"Incorrect. The answer was {correctAnswer}.");
+		Thread.Sleep(1500);
+	}
+	gameRecord.Add((questionNumber, $"{operand1} {GetOperandSymbol(operand)} {operand2}", userAnswer, isCorrect));
+}
+
+(int, int) GenerateOperands(string operand, int upperLimit, int divisorLimit)
+{
+	int addend1 = ran.Next(1, upperLimit);
+	int addend2 = ran.Next(1, upperLimit);
+
+	if (operand == "division")
+	{
+		addend2 = ran.Next(1, divisorLimit); // Divisor is still capped by difficulty
+		int quotient = ran.Next(1, upperLimit / addend2); // Generate a larger range for the quotient
+		addend1 = addend2 * quotient; // Calculate dividend as divisor * quotient
+	}
+
+	return (addend1, addend2);
+}
+
+int GetCorrectAnswer(string operand, int addend1, int addend2)
+{
+	return operand switch
+	{
+		"addition" => addend1 + addend2,
+		"subtraction" => addend1 - addend2,
+		"multiplication" => addend1 * addend2,
+		"division" => addend1 / addend2,
+		_ => 0
+	};
+}
+
+int GetUpperLimit(Difficulty difficulty)
+{
+	return difficulty switch
+	{
+		Difficulty.Easy => 25,
+		Difficulty.Medium => 101,
+		Difficulty.Hard => 501,
+		_ => 101
+	};
+}
+
+int GetDivisorLimit(Difficulty difficulty)
+{
+	return difficulty switch
+	{
+		Difficulty.Easy => 13,
+		Difficulty.Medium => 51,
+		Difficulty.Hard => 251,
+		_ => 51
+	};
+}
+
+string GetOperandSymbol(string operand)
+{
+	return operand switch
+	{
+		"addition" => "+",
+		"subtraction" => "-",
+		"multiplication" => "×",
+		"division" => "÷",
+		_ => "?"
+	};
+}
+
+string GetRandomOperand()
+{
+	return new[] { "addition", "subtraction", "multiplication", "division" }[ran.Next(4)];
+}
+
+void FinishGame(List<(int, string, int, bool)> gameRecord, int totalScore, Difficulty difficulty)
+{
+	stopwatch.Stop();
+	timer.Stop();
+	Console.WriteLine($"\n\n\nYou got {totalScore} out of 10!");
+	Console.WriteLine($"\nIt took you {stopwatch.Elapsed.TotalSeconds:F2} seconds.");
+	pastGames.Add((gameRecord, totalScore, difficulty, stopwatch.Elapsed.TotalSeconds));
+	stopwatch.Reset();
+	timer.Elapsed -= OnTimedEvent;
+}
+
+int GetUserInput(bool voiceMode)
+{
+	return voiceMode ? GetUserAnswer() : GetManualAnswer();
+}
+
+int GetManualAnswer()
+{
+	int userAnswer;
+	while (true)
+	{
+		if (int.TryParse(Console.ReadLine(), out userAnswer))
+		{
+			return userAnswer;
+		}
+		else
+		{
+			Console.WriteLine("That was not a valid answer! Please enter numeric answers only (no decimals).");
+		}
+	}
 }
 
 char HandleMenuInput()
@@ -258,9 +250,137 @@ char HandleMenuInput()
 		else 
 		{
 			Console.WriteLine("Enter an alphanumeric character");
-			Thread.Sleep(0500);
+			Thread.Sleep(1500);
 		}
 	}
+}
+
+int GetUserAnswer()
+{
+	// This example requires environment variables named "SPEECH_KEY" and "SPEECH_REGION"
+	string speechKey = "ENTER KEY";
+	string speechRegion = "ENTER REGION";
+	if (string.IsNullOrEmpty(speechKey) || string.IsNullOrEmpty(speechRegion))
+	{
+		Console.WriteLine("Missing SPEECH_KEY or SPEECH_REGION environment variable.");
+		return -1;
+	}
+
+	int result = 0;
+	bool recognized = false;
+
+	async Task OutputSpeechRecognitionResult(SpeechRecognitionResult speechRecognitionResult)
+	{
+		switch (speechRecognitionResult.Reason)
+		{
+			case ResultReason.RecognizedSpeech:
+				Console.WriteLine($"You said: {speechRecognitionResult.Text}");
+
+				// Clean up the recognized text
+				string cleanedText = CleanSpeechText(speechRecognitionResult.Text);
+
+				if (int.TryParse(cleanedText, NumberStyles.Integer, CultureInfo.InvariantCulture, out result))
+				{
+					recognized = true;
+				}
+				else
+				{
+					Console.WriteLine("Could not parse speech result into a valid number.");
+				}
+				break;
+
+			case ResultReason.NoMatch:
+				Console.WriteLine("NOMATCH: Speech could not be recognized.");
+				break;
+
+			case ResultReason.Canceled:
+				var cancellation = CancellationDetails.FromResult(speechRecognitionResult);
+				Console.WriteLine($"CANCELED: Reason={cancellation.Reason}");
+
+				if (cancellation.Reason == CancellationReason.Error)
+				{
+					Console.WriteLine($"CANCELED: ErrorCode={cancellation.ErrorCode}");
+					Console.WriteLine($"CANCELED: ErrorDetails={cancellation.ErrorDetails}");
+					Console.WriteLine($"CANCELED: Did you set the speech resource key and region values?");
+				}
+				break;
+		}
+	}
+
+	async Task<int> RecognizeSpeechContinuously()
+	{
+		var speechConfig = SpeechConfig.FromSubscription(speechKey, speechRegion);
+		speechConfig.SpeechRecognitionLanguage = "en-US";
+
+		using var audioConfig = AudioConfig.FromDefaultMicrophoneInput();
+		using var speechRecognizer = new SpeechRecognizer(speechConfig, audioConfig);
+
+		Console.WriteLine("Speak into your microphone.\n");
+
+		// Subscribe to events for continuous recognition
+		speechRecognizer.Recognized += async (s, e) =>
+		{
+			await OutputSpeechRecognitionResult(e.Result);
+		};
+
+		speechRecognizer.Canceled += (s, e) =>
+		{
+			Console.WriteLine($"Recognition canceled: {e.Reason}");
+		};
+
+		// Start continuous recognition
+		await speechRecognizer.StartContinuousRecognitionAsync();
+
+		// Wait for the user to speak (this loop keeps waiting until a number is recognized)
+		while (!recognized)
+		{
+			await Task.Delay(500); // Check every half second
+		}
+
+		// Stop continuous recognition after the answer is recognized
+		await speechRecognizer.StopContinuousRecognitionAsync();
+
+		return result;
+	}
+
+	// Run continuous recognition and wait for result
+	return RecognizeSpeechContinuously().GetAwaiter().GetResult();
+}
+
+// Function to clean up the recognized speech text
+string CleanSpeechText(string speechText)
+{
+	// Remove any non-digit characters, except for hyphen (which is used in word numbers)
+	string cleanedText = new string(speechText.Where(c => char.IsDigit(c) || char.IsWhiteSpace(c) || c == '-').ToArray());
+
+	// Attempt to convert written numbers to digits (e.g., "twenty-two" -> "22")
+	cleanedText = ConvertWordsToNumbers(cleanedText);
+
+	return cleanedText.Trim();
+}
+
+// Simple conversion for common number words to digits
+string ConvertWordsToNumbers(string text)
+{
+	var numbers = new Dictionary<string, string>
+	{
+		{ "zero", "0" }, { "one", "1" }, { "two", "2" }, { "three", "3" }, { "four", "4" },
+		{ "five", "5" }, { "six", "6" }, { "seven", "7" }, { "eight", "8" }, { "nine", "9" },
+		{ "ten", "10" }, { "eleven", "11" }, { "twelve", "12" }, { "thirteen", "13" },
+		{ "fourteen", "14" }, { "fifteen", "15" }, { "sixteen", "16" }, { "seventeen", "17" },
+		{ "eighteen", "18" }, { "nineteen", "19" }, { "twenty", "20" }, { "thirty", "30" },
+		{ "forty", "40" }, { "fifty", "50" }, { "sixty", "60" }, { "seventy", "70" },
+		{ "eighty", "80" }, { "ninety", "90" }, { "hundred", "100" }, { "thousand", "1000" }
+	};
+
+	foreach (var kvp in numbers)
+	{
+		text = text.Replace(kvp.Key, kvp.Value);
+	}
+
+	// Further processing could be added here to handle more complex numbers
+
+	return text;
 }
 
 void Menu()
@@ -273,7 +393,7 @@ void Menu()
 	{
 		Console.Clear();
 		Console.WriteLine(" --------- \n|MATH GAME|\n --------- ");
-		Console.WriteLine("\n\n1. Play\n2. View Scores\n\nQ. Quit");
+		Console.WriteLine($"\n\n1. Play\n2. View Scores\n3. Toggle Voice Control (In-Game): {voiceMode}\n\nQ. Quit");
 		menuInput = HandleMenuInput();
 		switch (menuInput)
 		{
@@ -282,13 +402,16 @@ void Menu()
 			case '2':
 				DisplayScores();
 				continue;
+			case '3':
+				voiceMode = !voiceMode;
+				continue;
 			case 'q':
 			case 'Q':
 				menuInputMade = true;
 				continue;
 			default:
 				Console.WriteLine("Pick a valid option");
-				Thread.Sleep(0500);
+				Thread.Sleep(1500);
 				continue;
 		}
 		
@@ -312,7 +435,7 @@ void Menu()
 				continue;
 			default:
 				Console.WriteLine("Pick a valid option");
-				Thread.Sleep(0500);
+				Thread.Sleep(1500);
 				continue;
 		}
 		
@@ -342,7 +465,7 @@ void Menu()
 				continue;
 			default:
 				Console.WriteLine("Pick a valid option");
-				Thread.Sleep(0500);
+				Thread.Sleep(1500);
 				continue;
 		}
 	}

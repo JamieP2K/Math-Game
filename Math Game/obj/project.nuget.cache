@@ -1,8 +1,10 @@
 {
   "version": 2,
-  "dgSpecHash": "M5FdUjFDieA=",
+  "dgSpecHash": "Tq6YZG9W1M0=",
   "success": true,
   "projectFilePath": "C:\\Users\\Jamie\\Documents\\Programming\\Projects\\FreeCodeCamp\\CSharpProjects\\Math Game\\Math Game\\Math Game.csproj",
-  "expectedPackageFiles": [],
+  "expectedPackageFiles": [
+    "C:\\Users\\Jamie\\.nuget\\packages\\microsoft.cognitiveservices.speech\\1.41.1\\microsoft.cognitiveservices.speech.1.41.1.nupkg.sha512"
+  ],
   "logs": []
 }
