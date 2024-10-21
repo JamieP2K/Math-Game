@@ -8,7 +8,8 @@
     ".NETCoreApp,Version=v8.0": {
       "Math Game/1.0.0": {
         "dependencies": {
-          "Microsoft.CognitiveServices.Speech": "1.41.1"
+          "Microsoft.CognitiveServices.Speech": "1.41.1",
+          "Spectre.Console": "0.49.1"
         },
         "runtime": {
           "Math Game.dll": {}
@@ -418,6 +419,14 @@
             "fileVersion": "1.41.1.28"
           }
         }
+      },
+      "Spectre.Console/0.49.1": {
+        "runtime": {
+          "lib/net8.0/Spectre.Console.dll": {
+            "assemblyVersion": "0.0.0.0",
+            "fileVersion": "0.49.1.0"
+          }
+        }
       }
     }
   },
@@ -433,6 +442,13 @@
       "sha512": "sha512-0572dYGk4eR2tFQly5t1wGCHzpqX6t6mHozVUPSjoEauI5HC0bT5bYfE+foCpIX4/bZlycMyLfqnsQ2TTuIfuw==",
       "path": "microsoft.cognitiveservices.speech/1.41.1",
       "hashPath": "microsoft.cognitiveservices.speech.1.41.1.nupkg.sha512"
+    },
+    "Spectre.Console/0.49.1": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-USV+pdu49OJ3nCjxNuw1K9Zw/c1HCBbwbjXZp0EOn6wM99tFdAtN34KEBZUMyRuJuXlUMDqhd8Yq9obW2MslYA==",
+      "path": "spectre.console/0.49.1",
+      "hashPath": "spectre.console.0.49.1.nupkg.sha512"
     }
   }
 }

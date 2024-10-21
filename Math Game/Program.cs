@@ -3,9 +3,13 @@ using System.Globalization;
 using System.Timers;
 using Microsoft.CognitiveServices.Speech;
 using Microsoft.CognitiveServices.Speech.Audio;
+using Spectre.Console;
 
-
+//Used to determine whether input for answers will be through voice control or not. Toggled in the main menu
 bool voiceMode = true;
+
+//Used to determine whether a game has been finished, directing the user to the main menu.
+bool gameFinised = false;
 
 Random ran = new Random();
 List<(List<(int, string, int, bool)>, int, Difficulty, double)> pastGames = [];
@@ -17,36 +21,50 @@ Console.Title = "Math Game";
 
 Menu();
 
-void Addition(Difficulty difficulty)
+//Methods to allow starting a game in a certain difficulty and operator
+bool Addition(Difficulty difficulty)
 {
-	Game(difficulty, "addition");
+	Game(difficulty, "addition", false);
+	return false;
 }
 
-void Subtraction(Difficulty difficulty)
+bool Subtraction(Difficulty difficulty)
 {
-	Game(difficulty, "subtraction");
+	Game(difficulty, "subtraction", false);
+	return false;
 }
 
-void Multiplication(Difficulty difficulty)
+bool Multiplication(Difficulty difficulty)
 {
-	Game(difficulty, "multiplication");
+	Game(difficulty, "multiplication", false);
+	return false;
 }
 
-void Division(Difficulty difficulty)	
+bool Division(Difficulty difficulty)	
 {
-	Game(difficulty, "division");
+	Game(difficulty, "division", false);
+	return false;
 }
 
-void RandomGame(Difficulty difficulty)
+bool RandomGame(Difficulty difficulty)
 {
-	Game(difficulty, "random");
+	Game(difficulty, "random", true);
+	return false;
 }
 
-
+//Displays all recorded games. Games come in the form of a list containing questions, answers and whether the answer was correct. This is so that more indepth information can be stored from any game rather than basic information such as score.
 void DisplayScores()
 {
 	Console.Clear();
-	Console.WriteLine($"=========================================================================");
+	AnsiConsole.Write(new FigletText("Scoreboard").Centered().Color(Color.Blue));
+	AnsiConsole.Write(new Rule().RuleStyle("blue dim"));
+	
+	var grid = new Grid();
+	for (int i = 0; i < 4; i++)
+	{
+		grid.AddColumn();
+	}
+	
 	for (int i = 0; i < pastGames.Count; i++)
 	{
 		List<(int, string, int, bool)> gameRecord = pastGames[i].Item1;
@@ -54,19 +72,44 @@ void DisplayScores()
 		Difficulty difficulty = pastGames[i].Item3;
 		double time = pastGames[i].Item4;
 		
-		Console.WriteLine($"-------------------------------------------------------------------------\nGame {i + 1}:\nTotal Score = {totalScore, -7}   Difficulty = {difficulty, -7}   Time Taken = {time:F2}\n");
+		grid.AddRow(new Text[]
+		{
+			new Text(" ", new Style(Color.Red, Color.Black)).LeftJustified(),
+		});
+		
+		grid.AddRow(new Text[]
+		{
+			new Text($"Game {i + 1}:", new Style(Color.Red, Color.Black)).LeftJustified(),
+		});
+		
+		grid.AddRow(new Text[]
+		{
+			new Text($"Difficulty: {difficulty}", new Style(Color.Green, Color.Black)).LeftJustified(),
+			new Text($"Time Taken: {time:F2}", new Style(Color.Green, Color.Black)).Centered(),
+			new Text($"Score: {totalScore} / 10", new Style(Color.Green, Color.Black)).RightJustified()
+		});
 		
 		foreach (var record in gameRecord)
 		{
-			string questionNumber = "[" + Convert.ToString(record.Item1) + "]";
+			string questionNumber = Convert.ToString(record.Item1);
 			string question = record.Item2;
-			int answer = record.Item3;
-			string isCorrect = record.Item4 ? "YES" : "NO";
+			string answer = Convert.ToString(record.Item3);
+			bool isCorrect = record.Item4;
 			
-			Console.WriteLine($"{questionNumber, -6}   Question: {question, -14}   Your Answer: {answer, -7}   Correct? {isCorrect}");
+			Style style = isCorrect ? new Style(Color.Green, Color.Black) : new Style(Color.Red, Color.Black);
+			
+			
+			grid.AddRow(new Text[]
+			{
+			new Text($"Question {questionNumber}.").LeftJustified(),
+			new Text($"{question}").LeftJustified(),
+			new Text($"{answer}", style)
+			});
 		}
-		Console.WriteLine("\n\n");
 	}
+	
+	AnsiConsole.Write(grid);
+	
 	Console.WriteLine("\n\n\n\nPress any key to return to menu.");
 	while (true)
 	{
@@ -75,12 +118,14 @@ void DisplayScores()
 	}
 }
 
+
+//Used by the timer to update the time displayed on the app's title in real time
 void OnTimedEvent(Object source, ElapsedEventArgs e)
 {
 	Console.Title = $"Math Game | Time: {stopwatch.Elapsed.TotalSeconds:F2}";
 }
 
-void Game(Difficulty difficulty, string operand)
+void Game(Difficulty difficulty, string operand, bool isRandomMode)
 {
 	int totalScore = 0;
 	int questionNumber = 1;
@@ -95,6 +140,11 @@ void Game(Difficulty difficulty, string operand)
 	
 	while (questionNumber <= 10)
 	{
+		if (isRandomMode)
+		{
+			operand = GetRandomOperand();
+		}
+		
 		(int operand1, int operand2) = GenerateOperands(operand, upperLimit, divisorLimit);
 		int correctAnswer = GetCorrectAnswer(operand, operand1, operand2);
 		
@@ -112,15 +162,12 @@ void Game(Difficulty difficulty, string operand)
 		ProcessAnswer(gameRecord, ref totalScore, questionNumber, operand1, operand2, operand, userAnswer, correctAnswer, isCorrect);
 
 		questionNumber++;
-		if (operand == "random")
-		{
-			operand = GetRandomOperand();
-		}
 	}
 
 	FinishGame(gameRecord, totalScore, difficulty);
 }
 
+//Checks the answer to determine correctness. Then stores the question and answer as a game record to be displayed later.
 void ProcessAnswer(List<(int, string, int, bool)> gameRecord, ref int totalScore, int questionNumber, int operand1, int operand2, string operand, int userAnswer, int correctAnswer, bool isCorrect)
 {
 	if (isCorrect)
@@ -134,7 +181,7 @@ void ProcessAnswer(List<(int, string, int, bool)> gameRecord, ref int totalScore
 		Console.WriteLine($"Incorrect. The answer was {correctAnswer}.");
 		Thread.Sleep(1500);
 	}
-	gameRecord.Add((questionNumber, $"{operand1} {GetOperandSymbol(operand)} {operand2}", userAnswer, isCorrect));
+	gameRecord.Add((questionNumber, $"{operand1} {GetOperandSymbol(operand)} {operand2} = {correctAnswer}", userAnswer, isCorrect));
 }
 
 (int, int) GenerateOperands(string operand, int upperLimit, int divisorLimit)
@@ -147,6 +194,14 @@ void ProcessAnswer(List<(int, string, int, bool)> gameRecord, ref int totalScore
 		addend2 = ran.Next(1, divisorLimit); // Divisor is still capped by difficulty
 		int quotient = ran.Next(1, upperLimit / addend2); // Generate a larger range for the quotient
 		addend1 = addend2 * quotient; // Calculate dividend as divisor * quotient
+	}
+	if (operand == "subtraction" && addend1 < addend2)
+	{
+		(addend1, addend2) = (addend2, addend1);
+	}
+	if (operand == "multiplication" && addend1 < addend2)
+	{
+		(addend1, addend2) = (addend2, addend1);
 	}
 
 	return (addend1, addend2);
@@ -212,6 +267,8 @@ void FinishGame(List<(int, string, int, bool)> gameRecord, int totalScore, Diffi
 	pastGames.Add((gameRecord, totalScore, difficulty, stopwatch.Elapsed.TotalSeconds));
 	stopwatch.Reset();
 	timer.Elapsed -= OnTimedEvent;
+	DisplayScores();
+	gameFinised = true;
 }
 
 int GetUserInput(bool voiceMode)
@@ -258,8 +315,8 @@ char HandleMenuInput()
 int GetUserAnswer()
 {
 	// This example requires environment variables named "SPEECH_KEY" and "SPEECH_REGION"
-	string speechKey = "ENTER KEY";
-	string speechRegion = "ENTER REGION";
+	string speechKey = "";
+	string speechRegion = "";
 	if (string.IsNullOrEmpty(speechKey) || string.IsNullOrEmpty(speechRegion))
 	{
 		Console.WriteLine("Missing SPEECH_KEY or SPEECH_REGION environment variable.");
@@ -378,112 +435,196 @@ string ConvertWordsToNumbers(string text)
 		text = text.Replace(kvp.Key, kvp.Value);
 	}
 
-	// Further processing could be added here to handle more complex numbers
-
 	return text;
 }
 
+
+/*
+MENUS
+*/
+
 void Menu()
 {
-	bool menuInputMade = false;
-	char menuInput;
-	Difficulty difficulty;
+	bool menuRunning = true;
 
-	do 
+	while (menuRunning)
 	{
 		Console.Clear();
-		Console.WriteLine(" --------- \n|MATH GAME|\n --------- ");
-		Console.WriteLine($"\n\n1. Play\n2. View Scores\n3. Toggle Voice Control (In-Game): {voiceMode}\n\nQ. Quit");
-		menuInput = HandleMenuInput();
-		switch (menuInput)
+		ShowMainTitle();
+
+		// Dictionary is used here to allow the text in the menu and the string used in logic to differ (e.g OFF and ON in toggle voice)
+		var choices = new Dictionary<string, string>
 		{
-			case '1':
+			{ "Play", "Play" },
+			{ "View Scores", "View Scores" },
+			{ "Toggle Voice", voiceMode ? "Toggle Voice: [green]ON[/]" : "Toggle Voice: [red]OFF[/]" },
+			{ "Quit", "[red]Quit[/]" }
+		};
+
+		var input = AnsiConsole.Prompt(
+			new SelectionPrompt<string>()
+				.Title("\nPick an Option")
+				.WrapAround(true)
+				.PageSize(10)
+				.MoreChoicesText("[grey](Move up and down to reveal more options)[/]")
+				.AddChoices(choices.Keys)
+				.UseConverter(choice => choices[choice]));
+
+
+		// Switch case logic with simple values
+		switch (input)
+		{
+			case "Play":
+				PlayMenu();
 				break;
-			case '2':
+			case "View Scores":
 				DisplayScores();
-				continue;
-			case '3':
-				voiceMode = !voiceMode;
-				continue;
-			case 'q':
-			case 'Q':
-				menuInputMade = true;
-				continue;
-			default:
-				Console.WriteLine("Pick a valid option");
-				Thread.Sleep(1500);
-				continue;
-		}
-		
-		
-		Console.Clear();
-		Console.WriteLine("Choose your difficulty (difficulty affects range of numbers)\n\n1. Easy\n2. Medium\n3. Hard\n\nB. Back");
-		menuInput = HandleMenuInput();
-		switch (menuInput)
-		{
-			case '1':
-				difficulty = Difficulty.Easy;
 				break;
-			case '2':
-				difficulty = Difficulty.Medium;
+			case "Toggle Voice":
+				ToggleVoiceMode();
 				break;
-			case '3':
-				difficulty = Difficulty.Hard;
+			case "Quit":
+				Console.Clear();
+				menuRunning = false; // Ends the loop and quits the program
 				break;
-			case 'b':
-			case 'B':
-				continue;
-			default:
-				Console.WriteLine("Pick a valid option");
-				Thread.Sleep(1500);
-				continue;
-		}
-		
-		Console.Clear();
-		Console.WriteLine("\n\n\nPick An Option Below\n");
-		Console.WriteLine("1. Addition\n2. Subtraction\n3. Multiplication\n4. Division\n5. Random\n\nB. Back");
-		menuInput = HandleMenuInput();
-		switch (menuInput)
-		{
-			case '1':
-				Addition(difficulty);
-				break;
-			case '2':
-				Subtraction(difficulty);
-				break;
-			case '3':
-				Multiplication(difficulty);
-				break;
-			case '4':
-				Division(difficulty);
-				break;
-			case '5':
-				RandomGame(difficulty);
-				break;
-			case 'b':
-			case 'B':
-				continue;
-			default:
-				Console.WriteLine("Pick a valid option");
-				Thread.Sleep(1500);
-				continue;
 		}
 	}
-	while (!menuInputMade);
+}
+
+
+void PlayMenu()
+{
+	while (true)
+	{
+		Difficulty difficulty = ChooseDifficulty();
+
+		// Check if user wants to go back to the Main Menu
+		if (difficulty == Difficulty.Invalid)
+		{
+			break; // Exit to the Main Menu
+		}
+
+		// Loop for game modes until the user selects "Back"
+		while (true)
+		{
+			if (ChooseGameMode(difficulty)) // This will return true if the user chooses to go back
+			{
+				break; // Go back to the Difficulty Menu
+			}
+			else
+			{
+				// If we get here, it means a game was played and finished, so we break to go back to the Main Menu
+				break; // This will take us out to the PlayMenu's while loop, sending us back to the Main Menu
+			}
+		}
+	}
+}
+
+
+Difficulty ChooseDifficulty()
+{
+	
+	if (gameFinised)
+	{
+		gameFinised = false;
+		return Difficulty.Invalid;
+	}
+	var choices = new Dictionary<string, string>
+	{
+		{ "Easy", "Easy" },
+		{ "Medium", "Medium" },
+		{ "Hard", "Hard" },
+		{ "Back", "[red]Go Back[/]" }
+	};
+
+	var input = AnsiConsole.Prompt(
+		new SelectionPrompt<string>()
+			.Title("\nChoose Difficulty")
+			.WrapAround(true)
+			.PageSize(10)
+			.MoreChoicesText("[grey](Move up and down to reveal more options)[/]")
+			.AddChoices(choices.Keys)
+			.UseConverter(choice => choices[choice]));
+			
+
+	switch (input)
+	{
+		case "Easy":
+			return Difficulty.Easy;
+		case "Medium":
+			return Difficulty.Medium;
+		case "Hard":
+			return Difficulty.Hard;
+		case "Back":
+			return Difficulty.Invalid; // Return Invalid to indicate going back
+		default:
+			return Difficulty.Invalid;
+	}
+}
+
+
+bool ChooseGameMode(Difficulty difficulty)
+{
+	var choices = new Dictionary<string, string>
+	{
+		{ "Addition", "Addition" },
+		{ "Subtraction", "Subtraction" },
+		{ "Multiplication", "Multiplication" },
+		{ "Division", "Division" },
+		{ "Random", "Random"},
+		{ "Back", "[red]Go Back[/]"}
+	};
+
+	var input = AnsiConsole.Prompt(
+		new SelectionPrompt<string>()
+			.Title("\nChoose Game Mode")
+			.WrapAround(true)
+			.PageSize(10)
+			.MoreChoicesText("[grey](Move up and down to reveal more options)[/]")
+			.AddChoices(choices.Keys)
+			.UseConverter(choice => choices[choice]));
+
+	switch (input)
+	{
+		case "Addition":
+			Addition(difficulty); // You may want to pass the score here
+			return false; // Game finished, return to Main Menu
+		case "Subtraction":
+			Subtraction(difficulty);
+			return false; // Game finished, return to Main Menu
+		case "Multiplication":
+			Multiplication(difficulty);
+			return false; // Game finished, return to Main Menu
+		case "Division":
+			Division(difficulty);
+			return false; // Game finished, return to Main Menu
+		case "Random":
+			RandomGame(difficulty);
+			return false; // Game finished, return to Main Menu
+		case "Back":
+			return true; // Go back to the Difficulty Menu
+		default:
+			return true; // Stay in the game mode menu if unexpected input
+	}
+}
+
+
+void ShowMainTitle()
+{
+	AnsiConsole.Write(new FigletText("Math Game").Centered().Color(Color.Red));
+	AnsiConsole.Write(new Rule().RuleStyle("red dim"));
+}
+
+
+void ToggleVoiceMode()
+{
+	voiceMode = !voiceMode;
 }
 
 	enum Difficulty
 	{
 		Easy,
 		Medium,
-		Hard
-	}
-	
-	public class GameRecord
-	{
-		public string Operation {get; set;}
-		public (int operand1, int operand2) Operands {get; set;}
-		public int UserAnswer {get; set;}
-		public int CorrectAnswer { get; set; }
-		public bool IsCorrect { get; set; }
-	}
+		Hard,
+		Invalid
+}
