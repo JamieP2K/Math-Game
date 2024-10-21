@@ -3,13 +3,17 @@ using System.Globalization;
 using System.Timers;
 using Microsoft.CognitiveServices.Speech;
 using Microsoft.CognitiveServices.Speech.Audio;
+using NAudio.CoreAudioApi;
 using Spectre.Console;
 
 //Used to determine whether input for answers will be through voice control or not. Toggled in the main menu
-bool voiceMode = true;
+bool voiceMode = false;
 
 //Used to determine whether a game has been finished, directing the user to the main menu.
 bool gameFinised = false;
+
+AudioConfig? selectedMic = null;
+string selectedMicName = "None";
 
 Random ran = new Random();
 List<(List<(int, string, int, bool)>, int, Difficulty, double)> pastGames = [];
@@ -56,8 +60,8 @@ bool RandomGame(Difficulty difficulty)
 void DisplayScores()
 {
 	Console.Clear();
-	AnsiConsole.Write(new FigletText("Scoreboard").Centered().Color(Color.Blue));
-	AnsiConsole.Write(new Rule().RuleStyle("blue dim"));
+	AnsiConsole.Write(new FigletText("Scoreboard").Centered().Color(Color.Red));
+	AnsiConsole.Write(new Rule().RuleStyle("red dim"));
 	
 	var grid = new Grid();
 	for (int i = 0; i < 4; i++)
@@ -84,9 +88,9 @@ void DisplayScores()
 		
 		grid.AddRow(new Text[]
 		{
-			new Text($"Difficulty: {difficulty}", new Style(Color.Green, Color.Black)).LeftJustified(),
-			new Text($"Time Taken: {time:F2}", new Style(Color.Green, Color.Black)).Centered(),
-			new Text($"Score: {totalScore} / 10", new Style(Color.Green, Color.Black)).RightJustified()
+			new Text($"Difficulty: {difficulty}", new Style(Color.SeaGreen3, Color.Black)).LeftJustified(),
+			new Text($"Time Taken: {time:F2}", new Style(Color.SeaGreen3, Color.Black)).LeftJustified(),
+			new Text($"Score: {totalScore} / 10", new Style(Color.SeaGreen3, Color.Black)).LeftJustified()
 		});
 		
 		foreach (var record in gameRecord)
@@ -101,9 +105,9 @@ void DisplayScores()
 			
 			grid.AddRow(new Text[]
 			{
-			new Text($"Question {questionNumber}.").LeftJustified(),
+			new Text($"({questionNumber})").RightJustified(),
 			new Text($"{question}").LeftJustified(),
-			new Text($"{answer}", style)
+			new Text($"{answer}", style).LeftJustified()
 			});
 		}
 	}
@@ -135,8 +139,6 @@ void Game(Difficulty difficulty, string operand, bool isRandomMode)
 	
 	int upperLimit = GetUpperLimit(difficulty);
 	int divisorLimit = GetDivisorLimit(difficulty);
-
-	Console.WriteLine($"\n\nGet ready for 10 {operand} questions on {difficulty} mode!");
 	
 	while (questionNumber <= 10)
 	{
@@ -152,11 +154,13 @@ void Game(Difficulty difficulty, string operand, bool isRandomMode)
 		stopwatch.Start();
 
 		Console.Clear();
-		Console.WriteLine($"Question {questionNumber}!\n\n");
+		
+		AnsiConsole.Write(new Rule($"[red]Question {questionNumber}[/]").LeftJustified().RuleStyle("red"));
 		Console.WriteLine($"What is {operand1} {GetOperandSymbol(operand)} {operand2}?\n");
 		
 		int userAnswer = GetUserInput(voiceMode);
 		bool isCorrect = userAnswer == correctAnswer;
+		if (isCorrect) totalScore++;
 		
 		// Process the result
 		ProcessAnswer(gameRecord, ref totalScore, questionNumber, operand1, operand2, operand, userAnswer, correctAnswer, isCorrect);
@@ -170,17 +174,6 @@ void Game(Difficulty difficulty, string operand, bool isRandomMode)
 //Checks the answer to determine correctness. Then stores the question and answer as a game record to be displayed later.
 void ProcessAnswer(List<(int, string, int, bool)> gameRecord, ref int totalScore, int questionNumber, int operand1, int operand2, string operand, int userAnswer, int correctAnswer, bool isCorrect)
 {
-	if (isCorrect)
-	{
-		Console.WriteLine("Correct!");
-		totalScore++;
-		Thread.Sleep(1500);
-	}
-	else
-	{
-		Console.WriteLine($"Incorrect. The answer was {correctAnswer}.");
-		Thread.Sleep(1500);
-	}
 	gameRecord.Add((questionNumber, $"{operand1} {GetOperandSymbol(operand)} {operand2} = {correctAnswer}", userAnswer, isCorrect));
 }
 
@@ -199,9 +192,11 @@ void ProcessAnswer(List<(int, string, int, bool)> gameRecord, ref int totalScore
 	{
 		(addend1, addend2) = (addend2, addend1);
 	}
-	if (operand == "multiplication" && addend1 < addend2)
+	if (operand == "multiplication")
 	{
-		(addend1, addend2) = (addend2, addend1);
+		addend1 = ran.Next(2, divisorLimit / 3);
+		addend2 = ran.Next(2, divisorLimit);
+		if (addend1 < addend2) (addend1, addend2) = (addend2, addend1);
 	}
 
 	return (addend1, addend2);
@@ -223,20 +218,22 @@ int GetUpperLimit(Difficulty difficulty)
 {
 	return difficulty switch
 	{
-		Difficulty.Easy => 25,
+		Difficulty.Easy => 26,
 		Difficulty.Medium => 101,
 		Difficulty.Hard => 501,
 		_ => 101
 	};
 }
 
+
+//Used to generate more fair division and multiplication questions
 int GetDivisorLimit(Difficulty difficulty)
 {
 	return difficulty switch
 	{
 		Difficulty.Easy => 13,
-		Difficulty.Medium => 51,
-		Difficulty.Hard => 251,
+		Difficulty.Medium => 25,
+		Difficulty.Hard => 101,
 		_ => 51
 	};
 }
@@ -262,11 +259,10 @@ void FinishGame(List<(int, string, int, bool)> gameRecord, int totalScore, Diffi
 {
 	stopwatch.Stop();
 	timer.Stop();
-	Console.WriteLine($"\n\n\nYou got {totalScore} out of 10!");
-	Console.WriteLine($"\nIt took you {stopwatch.Elapsed.TotalSeconds:F2} seconds.");
 	pastGames.Add((gameRecord, totalScore, difficulty, stopwatch.Elapsed.TotalSeconds));
 	stopwatch.Reset();
 	timer.Elapsed -= OnTimedEvent;
+	Console.Title = "Math Game";
 	DisplayScores();
 	gameFinised = true;
 }
@@ -287,27 +283,7 @@ int GetManualAnswer()
 		}
 		else
 		{
-			Console.WriteLine("That was not a valid answer! Please enter numeric answers only (no decimals).");
-		}
-	}
-}
-
-char HandleMenuInput()
-{
-	string userInput;
-	char menuInput;
-	while (true)
-	{
-		userInput = Console.ReadLine();
-		if (userInput.Length == 1)
-		{
-			menuInput = userInput[0];
-			return menuInput;
-		}
-		else 
-		{
-			Console.WriteLine("Enter an alphanumeric character");
-			Thread.Sleep(1500);
+			AnsiConsole.Write(new Text("Enter whole numeric answers only.\n", new Style(Color.Red3, Color.Black)).LeftJustified());
 		}
 	}
 }
@@ -315,8 +291,8 @@ char HandleMenuInput()
 int GetUserAnswer()
 {
 	// This example requires environment variables named "SPEECH_KEY" and "SPEECH_REGION"
-	string speechKey = "";
-	string speechRegion = "";
+	string speechKey = "ENTER KEY";
+	string speechRegion = "ENTER REGION";
 	if (string.IsNullOrEmpty(speechKey) || string.IsNullOrEmpty(speechRegion))
 	{
 		Console.WriteLine("Missing SPEECH_KEY or SPEECH_REGION environment variable.");
@@ -369,7 +345,7 @@ int GetUserAnswer()
 		var speechConfig = SpeechConfig.FromSubscription(speechKey, speechRegion);
 		speechConfig.SpeechRecognitionLanguage = "en-US";
 
-		using var audioConfig = AudioConfig.FromDefaultMicrophoneInput();
+		using var audioConfig = selectedMic;
 		using var speechRecognizer = new SpeechRecognizer(speechConfig, audioConfig);
 
 		Console.WriteLine("Speak into your microphone.\n");
@@ -446,6 +422,7 @@ MENUS
 void Menu()
 {
 	bool menuRunning = true;
+	bool defaultMic = true;
 
 	while (menuRunning)
 	{
@@ -458,8 +435,14 @@ void Menu()
 			{ "Play", "Play" },
 			{ "View Scores", "View Scores" },
 			{ "Toggle Voice", voiceMode ? "Toggle Voice: [green]ON[/]" : "Toggle Voice: [red]OFF[/]" },
+			{"Mic Settings", "Microphone Settings"},
 			{ "Quit", "[red]Quit[/]" }
 		};
+
+		if (selectedMicName == "None")
+		{
+			choices["Toggle Voice"] = "Toggle Voice: [red]OFF[/] [yellow](SELECT A MICROPHONE BEFORE ENABLING)[/]";
+		}
 
 		var input = AnsiConsole.Prompt(
 			new SelectionPrompt<string>()
@@ -481,7 +464,11 @@ void Menu()
 				DisplayScores();
 				break;
 			case "Toggle Voice":
+				if (selectedMicName == "None") {break;}
 				ToggleVoiceMode();
+				break;
+			case "Mic Settings":
+				MicMenu();
 				break;
 			case "Quit":
 				Console.Clear();
@@ -489,6 +476,53 @@ void Menu()
 				break;
 		}
 	}
+}
+
+void MicMenu()
+{
+	// Enumerate all input devices (microphones)
+	var enumerator = new MMDeviceEnumerator();
+	var devices = enumerator.EnumerateAudioEndPoints(DataFlow.Capture, DeviceState.Active);
+	
+	
+	//Checks to see if there is any microphones, if not then returns to the menu.
+	//Prevents crashes from no microphone
+	if (devices.Count == 0) 
+	{
+		Console.WriteLine("No Microphones Detected\n\nPress Any Key To Return");
+		while (true)
+		{
+			Console.ReadKey();
+			return;
+		}
+	}
+	var choices = new Dictionary<Object, string>{};
+	
+	
+	for (int i = 0; i < devices.Count; i++)
+	{
+		choices.Add(devices[i], devices[i].FriendlyName);
+	}
+	
+	choices.Add(new object(), "[red]Go Back[/]");
+
+	var input = AnsiConsole.Prompt(
+		new SelectionPrompt<Object>()
+			.Title($"\nPick Microphone (Current Microphone: {selectedMicName})")
+			.WrapAround(true)
+			.PageSize(10)
+			.MoreChoicesText("[grey](Move up and down to reveal more options)[/]")
+			.AddChoices(choices.Keys)
+			.UseConverter(choice => choices[choice]));
+	
+	if (!(input is MMDevice)) {return;}
+
+	MMDevice mic = (MMDevice)input;
+	
+	
+	// Select the microphone
+	selectedMic = AudioConfig.FromMicrophoneInput(mic.ID);
+	selectedMicName = mic.FriendlyName;
 }
 
 

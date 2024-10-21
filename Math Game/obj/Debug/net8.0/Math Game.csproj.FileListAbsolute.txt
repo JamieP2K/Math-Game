@@ -95,3 +95,9 @@ C:\Users\Jamie\Documents\Programming\Projects\FreeCodeCamp\CSharpProjects\Math G
 C:\Users\Jamie\Documents\Programming\Projects\FreeCodeCamp\CSharpProjects\Math Game\Math Game\obj\Debug\net8.0\Math Game.csproj.AssemblyReference.cache
 C:\Users\Jamie\Documents\Programming\Projects\FreeCodeCamp\CSharpProjects\Math Game\Math Game\obj\Debug\net8.0\Math Game.csproj.Up2Date
 C:\Users\Jamie\Documents\Programming\Projects\FreeCodeCamp\CSharpProjects\Math Game\Math Game\bin\Debug\net8.0\Spectre.Console.dll
+C:\Users\Jamie\Documents\Programming\Projects\FreeCodeCamp\CSharpProjects\Math Game\Math Game\bin\Debug\net8.0\NAudio.dll
+C:\Users\Jamie\Documents\Programming\Projects\FreeCodeCamp\CSharpProjects\Math Game\Math Game\bin\Debug\net8.0\NAudio.Asio.dll
+C:\Users\Jamie\Documents\Programming\Projects\FreeCodeCamp\CSharpProjects\Math Game\Math Game\bin\Debug\net8.0\NAudio.Core.dll
+C:\Users\Jamie\Documents\Programming\Projects\FreeCodeCamp\CSharpProjects\Math Game\Math Game\bin\Debug\net8.0\NAudio.Midi.dll
+C:\Users\Jamie\Documents\Programming\Projects\FreeCodeCamp\CSharpProjects\Math Game\Math Game\bin\Debug\net8.0\NAudio.Wasapi.dll
+C:\Users\Jamie\Documents\Programming\Projects\FreeCodeCamp\CSharpProjects\Math Game\Math Game\bin\Debug\net8.0\NAudio.WinMM.dll
