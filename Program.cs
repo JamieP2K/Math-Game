@@ -95,7 +95,7 @@ void DisplayScores()
 		
 		foreach (var record in gameRecord)
 		{
-			string questionNumber = Convert.ToString(record.Item1);
+			string questionNumber = record.Item1.ToString();
 			string question = record.Item2;
 			string answer = Convert.ToString(record.Item3);
 			bool isCorrect = record.Item4;
@@ -291,8 +291,8 @@ int GetManualAnswer()
 int GetUserAnswer()
 {
 	// This example requires environment variables named "SPEECH_KEY" and "SPEECH_REGION"
-	string speechKey = "ENTER KEY";
-	string speechRegion = "ENTER REGION";
+	string speechKey = "";
+	string speechRegion = "";
 	if (string.IsNullOrEmpty(speechKey) || string.IsNullOrEmpty(speechRegion))
 	{
 		Console.WriteLine("Missing SPEECH_KEY or SPEECH_REGION environment variable.");
@@ -307,7 +307,7 @@ int GetUserAnswer()
 		switch (speechRecognitionResult.Reason)
 		{
 			case ResultReason.RecognizedSpeech:
-				Console.WriteLine($"You said: {speechRecognitionResult.Text}");
+				Console.WriteLine(speechRecognitionResult.Text);
 
 				// Clean up the recognized text
 				string cleanedText = CleanSpeechText(speechRecognitionResult.Text);
